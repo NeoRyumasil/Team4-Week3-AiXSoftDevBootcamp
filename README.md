@@ -28,15 +28,10 @@ Berfokus untuk mendukung Quality Education (SDG #4) melalui pembelajaran berbasi
 ## 🛠 Tech Stack
 
 **Frontend:**
-- NextJS
-- Tailwind CSS
-- ShadCN
-- Zustand
+
 
 **Backend:**
-- AI SDK (Gemini 2.5 Flash)
-- MySQL Database example XAMPP
-- NodeJS
+
 
 ## 🚀 How to Run the Project
 
@@ -48,5 +43,4 @@ Berfokus untuk mendukung Quality Education (SDG #4) melalui pembelajaran berbasi
 ### Step 6 
 
 ## 📋 Requirements (optional)
-- Node.js versi 18 or newer
-- MySQL Database example (XAMPP)
+
