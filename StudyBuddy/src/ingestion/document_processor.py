@@ -45,6 +45,31 @@ class DocumentProcessor:
             print(f"Error processing {file_path}: {str(e)}")
             return None
     
+    def _get_file_metadata(self, file_path: Path) -> Dict[str, Any]:
+        return {
+            'file_name': file_path.name,
+            'file_size': file_path.stat().st_size,
+            'last_modified': file_path.stat().st_mtime,
+            'file_path': str(file_path.resolve())  # absolute path
+        }
+
+    def _load_processed_metadata(self, metadata_file: Path) -> Dict[str, Dict]:
+        """Muat metadata file yang sudah diproses sebelumnya."""
+        if not metadata_file.exists():
+            return {}
+        try:
+            with open(metadata_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading metadata: {e}")
+            return {}
+
+    def _save_processed_metadata(self, metadata_file: Path, metadata: Dict[str, Dict]):
+        """Simpan metadata file yang baru saja diproses."""
+        metadata_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(metadata_file, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, indent=2, default=str)
+    
     def _extract_text(self, file_path: Path) -> str:
         file_extension = file_path.suffix.lower()
         
@@ -93,22 +118,71 @@ class DocumentProcessor:
             soup = BeautifulSoup(html_content, 'html.parser')
             return soup.get_text()
     
-    def process_directory(self, directory_path: Path) -> List[Dict[str, Any]]:
+    def process_directory(
+        self, 
+        directory_path: Path, 
+        metadata_file: Optional[Path] = None,
+        force_reprocess: bool = False
+    ) -> List[Dict[str, Any]]:
+        """
+        Proses file dalam direktori — hanya yang baru atau berubah.
+        
+        Args:
+            directory_path: Path direktori dokumen
+            metadata_file: Path file metadata (opsional, default: .processed_metadata.json di direktori)
+            force_reprocess: Jika True, proses semua file tanpa cek metadata
+        """
         documents = []
         
         if not directory_path.exists():
             print(f"Directory not found: {directory_path}")
             return documents
         
+        # Default metadata file
+        if metadata_file is None:
+            metadata_file = directory_path / ".processed_metadata.json"
+        
+        # Muat metadata lama
+        if force_reprocess:
+            processed_metadata = {}
+        else:
+            processed_metadata = self._load_processed_metadata(metadata_file)
+        
+        current_metadata = {}
+        files_to_process = []
+        
+        # Kumpulkan semua file yang valid
         for file_path in directory_path.rglob('*'):
             if file_path.is_file() and not file_path.name.startswith('.'):
-                # Skip hidden files and files without extensions
                 if file_path.suffix.lower() in self.supported_formats:
-                    processed_doc = self.process_file(file_path)
-                    if processed_doc:
-                        documents.append(processed_doc)
+                    current_meta = self._get_file_metadata(file_path)
+                    current_metadata[file_path.name] = current_meta
+                    
+                    # Cek apakah file baru atau berubah
+                    if (force_reprocess or 
+                        file_path.name not in processed_metadata or 
+                        processed_metadata[file_path.name] != current_meta):
+                        files_to_process.append(file_path)
+                    else:
+                        print(f"Skipping unchanged file: {file_path.name}")
                 else:
                     print(f"Skipping unsupported file: {file_path.name}")
+        
+        # Proses hanya file yang perlu
+        for file_path in files_to_process:
+            processed_doc = self.process_file(file_path)
+            if processed_doc:
+                documents.append(processed_doc)
+        
+        # Simpan metadata baru setelah proses selesai
+        if files_to_process:
+            # Update metadata: gabung yang lama + yang baru diproses
+            for fname in current_metadata:
+                processed_metadata[fname] = current_metadata[fname]
+            self._save_processed_metadata(metadata_file, processed_metadata)
+            print(f"✅ Processed {len(files_to_process)} files. Metadata updated.")
+        else:
+            print("✅ No new or modified files to process.")
         
         return documents
     

@@ -44,28 +44,116 @@ st.set_page_config(
 # Custom CSS
 st.markdown("""
 <style>
+    /* Main container padding */
     .main > div {
         padding-top: 2rem;
     }
+
+    /* Chat message container */
     .stChatMessage {
-        padding: 1rem;
-        border-radius: 0.5rem;
+        padding: 1.2rem;
+        border-radius: 12px;
         margin-bottom: 1rem;
-        background-color: #f0f2f6;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        transition: all 0.2s ease;
     }
-    .user-message {
+
+    /* User message — biru muda segar */
+    .stChatMessage[data-testid="chat-message"] > div:first-child > div:first-child[data-testid="user"] {
         background-color: #e3f2fd !important;
-        border-left: 4px solid #2196f3;
+        border-left: 4px solid #1976d2;
+        border-top-left-radius: 12px !important;
+        border-top-right-radius: 12px !important;
     }
-    .assistant-message {
-        background-color: #f3e5f5 !important;
-        border-left: 4px solid #9c27b0;
+
+    /* Assistant message — biru ungu lembut */
+    .stChatMessage[data-testid="chat-message"] > div:first-child > div:first-child[data-testid="assistant"] {
+        background-color: #f0f7ff !important;
+        border-left: 4px solid #3f51b5;
+        border-top-left-radius: 12px !important;
+        border-top-right-radius: 12px !important;
     }
+
+    /* Hover effect for messages */
+    .stChatMessage:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+
+    /* Source info styling */
     .source-info {
-        font-size: 0.8rem;
-        color: #666;
+        font-size: 0.85rem;
+        color: #1565c0;
         font-style: italic;
-        margin-top: 0.5rem;
+        margin-top: 0.75rem;
+        padding: 0.5rem;
+        background-color: #e8f4fd;
+        border-radius: 8px;
+        border-left: 3px solid #0d47a1;
+    }
+
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background: #c0d9fc !important;
+        color: #247fff;
+        border: 3px solid #247fff
+    }
+
+    [data-testid="stSidebar"] .stMarkdown h2,
+    [data-testid="stSidebar"] .stMarkdown h3,
+    [data-testid="stSidebar"] .stMarkdown h4,
+    [data-testid="stSidebar"] .stMarkdown p {
+        color: white !important;
+    }
+
+    [data-testid="stSidebar"] .stButton button {
+        background-color: #ffffff20;
+        color: #033985;
+        border: 1px solid #c461cf;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    [data-testid="stSidebar"] .stButton button:hover {
+        background-color: #ffffff30;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(255,255,255,0.2);
+    }
+
+    /* Header styling */
+    h1, h2, h3 {
+        color: #1565c0;
+        font-weight: 600;
+    }
+
+    /* Divider styling */
+    hr {
+        border-top: 2px solid #1976d2;
+        margin: 1.5rem 0;
+    }
+
+    /* Success/info message styling */
+    .stSuccess, .stInfo, .stWarning {
+        border-radius: 10px;
+        border-left: 4px solid #1976d2;
+    }
+
+    /* Chat input styling */
+    .stChatInput {
+        padding-top: 1rem;
+    }
+
+    /* Spinner text */
+    .stSpinner {
+        color: #1976d2;
+    }
+
+    /* Metric styling */
+    [data-testid="stMetricValue"] {
+        color: #0d47a1 !important;
+    }
+    [data-testid="stMetricLabel"] {
+        color: #1976d2 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -101,28 +189,28 @@ def initialize_components():
         return False
 
 def process_documents():
-    """Process and index documents"""
     doc_processor = DocumentProcessor()
     documents_path = Path(settings.DOCUMENTS_DIRECTORY)
+    metadata_file = documents_path / ".processed_metadata.json"
     
     if not documents_path.exists():
         documents_path.mkdir(parents=True, exist_ok=True)
         st.info(f"Created documents directory at: {documents_path}")
-        st.info("Please add your documents to this directory and click 'Process Documents' again.")
         return
     
     with st.spinner("Processing documents..."):
-        documents = doc_processor.process_directory(documents_path)
+        # Hanya proses file baru/berubah
+        documents = doc_processor.process_directory(documents_path, metadata_file)
         
         if not documents:
-            st.warning("No documents found to process. Please add documents to the documents directory.")
+            st.info("No new or modified documents to process.")
             return
         
-        # Clear existing collection and add new documents
+        # Clear & re-add — atau lebih baik: update by source (lihat catatan di bawah)
         st.session_state.vector_store.clear_collection()
         st.session_state.vector_store.add_documents(documents)
         
-        st.success(f"Successfully processed and indexed {len(documents)} documents!")
+        st.success(f"✅ Successfully processed and indexed {len(documents)} documents!")
 
 def main():
     st.title("🧠 Smart Study Assistant")
@@ -138,29 +226,32 @@ def main():
     with st.sidebar:
         st.header("📁 Document Management")
         
-        # Document processing
-        if st.button("📤 Process Documents", use_container_width=True):
+        # # Document processing
+        # if st.button("📤 Process Documents", use_container_width=True):
+        #     if initialize_components():
+        #         process_documents()
+        
+        # Upload files
+        st.subheader("Upload Files")
+        uploaded_files = st.file_uploader(
+            "Choose files", 
+            accept_multiple_files=True,
+            type=['txt', 'md', 'pdf', 'docx']
+        )
+        
+        if uploaded_files:
+            documents_path = Path(settings.DOCUMENTS_DIRECTORY)
+            documents_path.mkdir(parents=True, exist_ok=True)
+            
+            for uploaded_file in uploaded_files:
+                file_path = documents_path / uploaded_file.name
+                with open(file_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+            
+            st.success(f"Uploaded {len(uploaded_files)} files!")
+
             if initialize_components():
                 process_documents()
-        
-        # # Upload files
-        # st.subheader("Upload Files")
-        # uploaded_files = st.file_uploader(
-        #     "Choose files", 
-        #     accept_multiple_files=True,
-        #     type=['txt', 'md', 'pdf', 'docx']
-        # )
-        
-        # if uploaded_files:
-        #     documents_path = Path(settings.DOCUMENTS_DIRECTORY)
-        #     documents_path.mkdir(parents=True, exist_ok=True)
-            
-        #     for uploaded_file in uploaded_files:
-        #         file_path = documents_path / uploaded_file.name
-        #         with open(file_path, "wb") as f:
-        #             f.write(uploaded_file.getbuffer())
-            
-        #     st.success(f"Uploaded {len(uploaded_files)} files!")
         
         st.divider()
         
