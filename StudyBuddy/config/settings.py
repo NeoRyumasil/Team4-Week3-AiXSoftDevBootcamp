@@ -28,8 +28,8 @@ class Settings:
     CHUNK_OVERLAP: int = int(os.getenv("CHUNK_OVERLAP", "200"))
     
     # UI settings
-    APP_TITLE: str = os.getenv("APP_TITLE", "Personal Knowledge Assistant")
-    APP_DESCRIPTION: str = os.getenv("APP_DESCRIPTION", "Chat with your personal knowledge base")
+    APP_TITLE: str = os.getenv("APP_TITLE", "Study Buddy")
+    APP_DESCRIPTION: str = os.getenv("APP_DESCRIPTION", "Your personal study assistant about Programming and Algorithms.")
     
     def validate_required_keys(self):
         if not self.GEMINI_API_KEY:

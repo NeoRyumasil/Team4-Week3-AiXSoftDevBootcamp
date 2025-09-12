@@ -35,8 +35,8 @@ except ImportError as e:
 
 # Page configuration
 st.set_page_config(
-    page_title="StudyBuddy - Smart Study Assistant",
-    page_icon="📖",
+    page_title=settings.APP_TITLE,
+    page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -54,12 +54,14 @@ st.markdown("""
         background-color: #f0f2f6;
     }
     .user-message {
-        background-color: #e3f2fd !important;
+        background-color: white !important;
         border-left: 4px solid #2196f3;
+        color: black;
     }
     .assistant-message {
-        background-color: #f3e5f5 !important;
+        background-color: white !important;
         border-left: 4px solid #9c27b0;
+        color: black;
     }
     .source-info {
         font-size: 0.8rem;
@@ -125,8 +127,8 @@ def process_documents():
         st.success(f"Successfully processed and indexed {len(documents)} documents!")
 
 def main():
-    st.title("🧠 Smart Study Assistant")
-    st.markdown("Chat with us to help improve your study")
+    st.title("🧠 " + settings.APP_TITLE)
+    st.markdown(settings.APP_DESCRIPTION)
     
     # Check for API key
     if not settings.GEMINI_API_KEY:
@@ -143,24 +145,24 @@ def main():
             if initialize_components():
                 process_documents()
         
-        # # Upload files
-        # st.subheader("Upload Files")
-        # uploaded_files = st.file_uploader(
-        #     "Choose files", 
-        #     accept_multiple_files=True,
-        #     type=['txt', 'md', 'pdf', 'docx']
-        # )
+        # Upload files
+        st.subheader("Upload Files")
+        uploaded_files = st.file_uploader(
+            "Choose files", 
+            accept_multiple_files=True,
+            type=['txt', 'md', 'pdf', 'docx']
+        )
         
-        # if uploaded_files:
-        #     documents_path = Path(settings.DOCUMENTS_DIRECTORY)
-        #     documents_path.mkdir(parents=True, exist_ok=True)
+        if uploaded_files:
+            documents_path = Path(settings.DOCUMENTS_DIRECTORY)
+            documents_path.mkdir(parents=True, exist_ok=True)
             
-        #     for uploaded_file in uploaded_files:
-        #         file_path = documents_path / uploaded_file.name
-        #         with open(file_path, "wb") as f:
-        #             f.write(uploaded_file.getbuffer())
+            for uploaded_file in uploaded_files:
+                file_path = documents_path / uploaded_file.name
+                with open(file_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
             
-        #     st.success(f"Uploaded {len(uploaded_files)} files!")
+            st.success(f"Uploaded {len(uploaded_files)} files!")
         
         st.divider()
         
@@ -198,14 +200,15 @@ def main():
         return
     
     # Main chat interface
-    st.header("💬directly chat to AI or 💾Insert the document you had ")
+    st.header("💬 Chat with your Knowledge Base")
     
     # Display chat messages
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-            if "sources" in message:
-                st.markdown(f'<div class="source-info">Sources: {", ".join(message["sources"])}</div>', 
+                role_class = "user-message" if message["role"] == "user" else "assistant-message"
+                st.markdown(f'<div class="{role_class}">{message["content"]}</div>', unsafe_allow_html=True)
+                if "sources" in message:
+                    st.markdown(f'<div class="source-info">Sources: {", ".join(message["sources"])}</div>', 
                            unsafe_allow_html=True)
     
     # Chat input
@@ -215,7 +218,7 @@ def main():
         
         # Display user message
         with st.chat_message("user"):
-            st.markdown(prompt)
+                st.markdown(f'<div class="user-message">{prompt}</div>', unsafe_allow_html=True)
         
         # Generate and display assistant response
         with st.chat_message("assistant"):
@@ -242,7 +245,7 @@ def main():
                     response = result['response']
                 
                 # Display response
-                st.markdown(response)
+                    st.markdown(f'<div class="assistant-message">{response}</div>', unsafe_allow_html=True)
                 
                 if sources:
                     st.markdown(f'<div class="source-info">Sources: {", ".join(sources)}</div>', 
